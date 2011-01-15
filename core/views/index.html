@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block "content" %}
+
+<h1 id="logo">cab</h1>
+<div class="content">
+	<h1>cab: Real-Time Feedback for Speakers and Lecturers.</h1>
+	<h2>Red: number of people logged in now.</h2>
+	<h2>Green: sum total of feedback.</h2>
+	<h2>click below</h2>
+	<script>
+	var totalScore = {{total_score}}, totalMembers = {{total_members}};
+	var line1 = new TimeSeries();
+	var line2 = new TimeSeries();
+	function vote(score) {
+		var ajx = new Ajax("/notify", {score: score});
+		ajx.type = "POST";
+		ajx.fetch();
+		$("#msg").val("");
+		return false;
+	}
+	receiveData = function() {
+		var ajx = new Ajax("/subscribe", {});
+		ajx.fetch(function(result) {
+			for (k = 0; k < result.messages.length; k++) {
+				var message = result.messages[k];
+				if (message.score !== undefined && message.members !== undefined) {
+					totalScore = message.score;
+					totalMembers = message.members;
+					//$("#console").append("members: " + message.members + ", score: " + message.score + "<br/>");
+					updateUI();
+				}
+			}
+			receiveData();
+		}, function() {
+			setTimeout(function() {
+				receiveData();
+			}, 3000);
+		});
+	}
+	$(document).ready(function() {
+		setTimeout(receiveData, 500);
+   
+		var smoothie = new SmoothieChart({
+			grid: {
+				strokeStyle: 'rgb(125, 0, 0)',
+				fillStyle: 'rgb(60, 0, 0)',
+				lineWidth: 1,
+				millisPerLine: 5000,
+				verticalSections: 6
+			},
+			millisPerPixel: 100
+		});
+		smoothie.addTimeSeries(line1, { strokeStyle: 'rgb(0, 255, 0)', fillStyle: 'rgba(0, 255, 0, 0.4)', lineWidth: 3 });
+		smoothie.addTimeSeries(line2, { strokeStyle: 'rgb(255, 0, 255)', fillStyle: 'rgba(255, 0, 255, 0.3)', lineWidth: 3 });
+		smoothie.streamTo(document.getElementById("graph"), 1000);
+		
+		// Add to SmoothieChart
+		smoothie.addTimeSeries(line1);
+		smoothie.addTimeSeries(line2);
+		
+		setInterval(updateUI, 5000);
+		
+		updateUI();
+	});
+	function updateUI() {		
+		// update graph
+		line1.append(new Date().getTime(), totalScore);
+		line2.append(new Date().getTime(), totalMembers);
+		
+		// update labels
+		$("#total_members").html("Students connected: " + totalMembers);
+		$("#total_score").html("Score: " + totalScore);
+	}
+	</script>
+	<a href="" onclick="return vote(-1);">Down</a>
+	<a href="" onclick="return vote(0);">Neutral</a>
+	<a href="" onclick="return vote(1);">Up</a>
+	<div id="console">
+		
+	</div>
+	<canvas id="graph" width="950" height="400"></canvas>
+	<h6 id="total_members"></h6>
+	<h6 id="total_score"></h6>
+</div>
+
+{% endblock %}
